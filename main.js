@@ -1,15 +1,29 @@
 const path = require("path");
-const { app, BrowserWindow, Menu } = require("electron");
+const os = require("os");
+const fs = require("fs");
+const { app, BrowserWindow, Menu, ipcMain, shell } = require("electron");
+const resizeImg = require("resize-img");
+
+process.env.NODE_ENV = "production";
 
 const isDev = process.env.NODE_ENV !== "production";
 const isMac = process.platform === "darwin";
 
+let mainWindow;
+
 // Creates the main window
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     title: "Electron Image Resizer",
     width: isDev ? 1000 : 500,
-    height: 600,
+    height: 650,
+
+    //pass the preload.js file in the main file
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: true,
+      preload: path.join(__dirname, "preload.js"),
+    },
   });
 
   //Open devtools if in development environment
@@ -38,6 +52,9 @@ app.whenReady().then(() => {
   // Implements menu
   const mainMenu = Menu.buildFromTemplate(menu);
   Menu.setApplicationMenu(mainMenu);
+
+  //Remove mainWindow from memnor on close to prevent memory leaks
+  mainWindow.on("close", () => (mainWindow = null));
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -77,6 +94,43 @@ const menu = [
       ]
     : []),
 ];
+
+// respond to ipcRenderer resize
+ipcMain.on("image:resize", (e, options) => {
+  options.dest = path.join(os.homedir(), "electronResizer");
+  resizeImage(options);
+});
+
+// Resize the image
+async function resizeImage({ imgPath, width, height, dest }) {
+  try {
+    const newPath = await resizeImg(fs.readFileSync(imgPath), {
+      width: +width,
+      height: +height,
+    });
+
+    // create filename
+    const filename = path.basename(imgPath);
+
+    // create destination if not exists
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest);
+    }
+
+    //write file to destination folder
+    fs.writeFileSync(path.join(dest, filename), newPath);
+
+    // send success message to render
+    mainWindow.webContents.send("img:done");
+
+    // open the destination folder
+    shell.openPath(dest);
+
+    // If there errors log them
+  } catch (error) {
+    console.log(error);
+  }
+}
 
 app.on("window-all-closed", () => {
   if (!isMac) {
