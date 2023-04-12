@@ -1,0 +1,17 @@
+{
+  "name": "image-resizer-electron",
+  "productName": "Electron Image Resizer",
+  "version": "1.0.0",
+  "description": "Image resizer using electronjs",
+  "main": "main.js",
+  "scripts": {
+    "start":"electron ."
+  },
+  "author": "Isaac NSB Kargbo",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^24.1.0",
+    "resize-img": "^2.0.0",
+    "toastify-js": "^1.12.0"
+  }
+}
